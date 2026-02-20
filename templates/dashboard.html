@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MODUS Forge — Sprint Dashboard</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --border: #1e1e2e;
+    --text: #e2e2e8;
+    --dim: #6b6b80;
+    --purple: #7C3AED;
+    --cyan: #06B6D4;
+    --green: #10B981;
+    --amber: #F59E0B;
+    --red: #EF4444;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 1rem;
+  }
+  .header h1 {
+    font-size: 1.4rem;
+    background: linear-gradient(135deg, var(--purple), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .header .version {
+    color: var(--dim);
+    font-size: 0.8rem;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 1.5rem;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+  .card h2 {
+    font-size: 0.85rem;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 1rem;
+  }
+  .conatus-bar {
+    height: 8px;
+    background: var(--border);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+  }
+  .conatus-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.5s ease;
+  }
+  .conatus-high { background: var(--green); }
+  .conatus-mid { background: var(--amber); }
+  .conatus-low { background: var(--red); }
+  .stat { display: flex; justify-content: space-between; margin: 0.5rem 0; }
+  .stat-label { color: var(--dim); font-size: 0.8rem; }
+  .stat-value { font-size: 1.1rem; font-weight: 600; }
+  .module-list { list-style: none; max-height: 300px; overflow-y: auto; }
+  .module-list li {
+    padding: 0.4rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .module-list li:last-child { border-bottom: none; }
+  .dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+  .dot-done { background: var(--green); }
+  .dot-pending { background: var(--amber); }
+  .learning {
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.8rem;
+    line-height: 1.5;
+    color: var(--dim);
+  }
+  .learning::before { content: '💡 '; }
+  .rune-tag {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    margin: 0.2rem;
+    background: rgba(124, 58, 237, 0.15);
+    color: var(--purple);
+    border: 1px solid rgba(124, 58, 237, 0.3);
+  }
+  .score-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.8rem; }
+  .score-item { text-align: center; }
+  .score-item .label { font-size: 0.7rem; color: var(--dim); }
+  .score-item .value { font-size: 1.4rem; font-weight: 700; }
+  .score-conatus { color: var(--green); }
+  .score-ratio { color: var(--cyan); }
+  .score-laetitia { color: var(--purple); }
+  .score-natura { color: var(--amber); }
+  #timestamp { color: var(--dim); font-size: 0.75rem; text-align: center; margin-top: 2rem; }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔥 MODUS Forge</h1>
+    <span class="version" id="version">v0.0.0</span>
+  </div>
+
+  <div class="grid">
+    <!-- Conatus -->
+    <div class="card">
+      <h2>⚡ Conatus</h2>
+      <div class="stat">
+        <span class="stat-label">Power of Existing</span>
+        <span class="stat-value" id="conatus-value">—</span>
+      </div>
+      <div class="conatus-bar"><div class="conatus-fill" id="conatus-bar"></div></div>
+      <div class="stat">
+        <span class="stat-label">Iteration</span>
+        <span class="stat-value" id="iteration">—</span>
+      </div>
+      <div class="stat">
+        <span class="stat-label">Last Sprint</span>
+        <span class="stat-value" id="last-sprint" style="font-size:0.85rem">—</span>
+      </div>
+    </div>
+
+    <!-- Spinoza Scores -->
+    <div class="card">
+      <h2>🔮 Spinoza Validation</h2>
+      <div class="score-grid">
+        <div class="score-item"><div class="label">Conatus</div><div class="value score-conatus" id="s-conatus">—</div></div>
+        <div class="score-item"><div class="label">Ratio</div><div class="value score-ratio" id="s-ratio">—</div></div>
+        <div class="score-item"><div class="label">Laetitia</div><div class="value score-laetitia" id="s-laetitia">—</div></div>
+        <div class="score-item"><div class="label">Natura</div><div class="value score-natura" id="s-natura">—</div></div>
+      </div>
+    </div>
+
+    <!-- Completed Modules -->
+    <div class="card">
+      <h2>✅ Completed Modules</h2>
+      <ul class="module-list" id="completed"></ul>
+    </div>
+
+    <!-- Pending -->
+    <div class="card">
+      <h2>📋 Pending</h2>
+      <ul class="module-list" id="pending"></ul>
+    </div>
+
+    <!-- RUNE Improvements -->
+    <div class="card" style="grid-column: 1 / -1">
+      <h2>🪄 RUNE Improvements</h2>
+      <div id="rune-improvements"></div>
+    </div>
+
+    <!-- Learnings -->
+    <div class="card" style="grid-column: 1 / -1">
+      <h2>🧠 Learnings</h2>
+      <div id="learnings"></div>
+    </div>
+  </div>
+
+  <div id="timestamp"></div>
+
+  <script>
+    // Load state from embedded data or fetch
+    const STATE = ##STATE_JSON##;
+
+    function render(s) {
+      document.getElementById('version').textContent = s.version || 'v0.0.0';
+      document.getElementById('iteration').textContent = `IT-${String(s.iteration).padStart(2, '0')}`;
+      document.getElementById('conatus-value').textContent = (s.conatus * 100).toFixed(0) + '%';
+      
+      const bar = document.getElementById('conatus-bar');
+      bar.style.width = (s.conatus * 100) + '%';
+      bar.className = 'conatus-fill ' + (s.conatus >= 0.8 ? 'conatus-high' : s.conatus >= 0.5 ? 'conatus-mid' : 'conatus-low');
+
+      const lastSprint = s.lastSprint ? new Date(s.lastSprint).toLocaleString() : '—';
+      document.getElementById('last-sprint').textContent = lastSprint;
+
+      // Modules
+      const completed = document.getElementById('completed');
+      completed.innerHTML = (s.completedModules || []).map(m =>
+        `<li><span class="dot dot-done"></span>${m}</li>`
+      ).join('');
+
+      const pending = document.getElementById('pending');
+      pending.innerHTML = (s.pendingModules || []).map(m =>
+        `<li><span class="dot dot-pending"></span>${m}</li>`
+      ).join('');
+
+      // RUNE
+      const rune = document.getElementById('rune-improvements');
+      rune.innerHTML = (s.runeImprovements || []).map(r =>
+        `<div class="learning">${r}</div>`
+      ).join('');
+
+      // Learnings
+      const learn = document.getElementById('learnings');
+      learn.innerHTML = (s.learnings || []).map(l =>
+        `<div class="learning">${l}</div>`
+      ).join('');
+
+      // Scores (from last validation if available)
+      ['conatus', 'ratio', 'laetitia', 'natura'].forEach(k => {
+        const el = document.getElementById('s-' + k);
+        if (s.lastScores && s.lastScores[k] !== undefined) {
+          el.textContent = s.lastScores[k].toFixed(1);
+        }
+      });
+
+      document.getElementById('timestamp').textContent = `Dashboard generated: ${new Date().toISOString()}`;
+    }
+
+    render(STATE);
+  </script>
+</body>
+</html>

@@ -1,0 +1,32 @@
+{
+  "name": "modus-forge",
+  "version": "0.1.0",
+  "description": "Speak it. See it. Use it. — Turn a sentence into a personal app in seconds.",
+  "main": "bin/forge.js",
+  "bin": {
+    "modus-forge": "bin/forge.js"
+  },
+  "type": "module",
+  "scripts": {
+    "start": "node bin/forge.js",
+    "test": "node --test test/"
+  },
+  "keywords": [
+    "ai",
+    "ephemeral-software",
+    "bespoke-apps",
+    "llm",
+    "dashboard",
+    "spinoza",
+    "rune",
+    "modus",
+    "prompt-engineering"
+  ],
+  "author": "NeuraByte Labs <mustafa@neurabytelabs.com>",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/neurabytelabs/modus-forge"
+  },
+  "homepage": "https://neurabytelabs.com"
+}

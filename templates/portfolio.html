@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MODUS Forge — Portfolio Dashboard</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --border: #1e1e2e;
+    --text: #e0e0e0;
+    --muted: #888;
+    --purple: #7C3AED;
+    --cyan: #06B6D4;
+    --green: #10B981;
+    --red: #EF4444;
+    --amber: #F59E0B;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem;
+  }
+  h1 {
+    font-size: 1.5rem;
+    margin-bottom: 1.5rem;
+    background: linear-gradient(135deg, var(--purple), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+  .card h3 {
+    font-size: 0.85rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }
+  .price {
+    font-size: 1.75rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .change {
+    font-size: 0.9rem;
+    margin-top: 0.25rem;
+    font-weight: 600;
+  }
+  .change.up { color: var(--green); }
+  .change.down { color: var(--red); }
+  .change.flat { color: var(--amber); }
+  .mood-bar {
+    height: 4px;
+    border-radius: 2px;
+    margin-top: 1rem;
+  }
+  .mood-bar.bullish { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+  .mood-bar.bearish { background: linear-gradient(90deg, var(--red), var(--amber)); }
+  .mood-bar.neutral { background: linear-gradient(90deg, var(--amber), var(--purple)); }
+  .timestamp {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-top: 1rem;
+  }
+  #data-area { display: none; }
+</style>
+</head>
+<body>
+  <h1>💰 Portfolio Dashboard</h1>
+  <div id="mood-label" style="margin-bottom:1rem; font-size:0.9rem; color:var(--muted);">Loading market data...</div>
+  <div class="grid" id="cards"></div>
+  <div class="timestamp" id="ts"></div>
+
+  <!-- Embed portfolio JSON data here for server-side rendering -->
+  <div id="data-area"><!-- __PORTFOLIO_JSON__ --></div>
+
+  <script>
+    // Demo data (replace __PORTFOLIO_JSON__ for real data)
+    const DEMO = {
+      timestamp: new Date().toISOString(),
+      crypto: [
+        { id: 'bitcoin', symbol: 'BTC', price: 97500, change24h: 2.3 },
+        { id: 'ethereum', symbol: 'ETH', price: 3420, change24h: -0.8 },
+        { id: 'solana', symbol: 'SOL', price: 185, change24h: 5.1 },
+      ],
+      stocks: [
+        { symbol: 'AAPL', price: 248.50, change24h: 0.4 },
+        { symbol: 'NVDA', price: 142.30, change24h: 3.2 },
+        { symbol: 'MSFT', price: 432.10, change24h: -0.2 },
+      ],
+    };
+
+    function render(data) {
+      const cards = document.getElementById('cards');
+      const all = [...data.crypto, ...data.stocks];
+      
+      cards.innerHTML = all.map(item => {
+        const ch = item.change24h ?? 0;
+        const cls = ch > 0.5 ? 'up' : ch < -0.5 ? 'down' : 'flat';
+        const arrow = ch > 0 ? '↑' : ch < 0 ? '↓' : '→';
+        const fmt = item.price >= 1000 
+          ? `$${item.price.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+          : `$${item.price.toFixed(2)}`;
+
+        return `
+          <div class="card">
+            <h3>${item.symbol}</h3>
+            <div class="price">${fmt}</div>
+            <div class="change ${cls}">${arrow} ${Math.abs(ch).toFixed(1)}%</div>
+          </div>`;
+      }).join('');
+
+      // Market mood
+      const changes = all.map(a => a.change24h).filter(c => c != null);
+      const avg = changes.length ? changes.reduce((a, b) => a + b, 0) / changes.length : 0;
+      const mood = avg > 1.5 ? 'bullish' : avg < -1.5 ? 'bearish' : 'neutral';
+      const emoji = mood === 'bullish' ? '🟢' : mood === 'bearish' ? '🔴' : '🟡';
+      
+      document.getElementById('mood-label').innerHTML = `${emoji} Market mood: <strong>${mood}</strong> (avg ${avg > 0 ? '+' : ''}${avg.toFixed(1)}%)`;
+      
+      // Mood bar
+      const bar = document.createElement('div');
+      bar.className = `mood-bar ${mood}`;
+      cards.after(bar);
+
+      document.getElementById('ts').textContent = `Last updated: ${new Date(data.timestamp).toLocaleString()}`;
+    }
+
+    render(DEMO);
+  </script>
+</body>
+</html>

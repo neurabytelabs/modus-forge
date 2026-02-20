@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🔮 Forge Grimoire</title>
+  <style>
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --surface2: #1a1a25;
+      --border: #2a2a3a;
+      --text: #e0e0e8;
+      --text-dim: #8888aa;
+      --purple: #7C3AED;
+      --cyan: #06B6D4;
+      --gold: #F59E0B;
+      --green: #10B981;
+      --red: #EF4444;
+      --font: 'Inter', system-ui, -apple-system, sans-serif;
+      --mono: 'JetBrains Mono', 'Fira Code', monospace;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+    .header {
+      padding: 2rem 2rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .header h1 { font-size: 1.8rem; background: linear-gradient(135deg, var(--purple), var(--cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .header .stats { display: flex; gap: 1.5rem; font-size: 0.85rem; color: var(--text-dim); }
+    .header .stats .num { color: var(--cyan); font-weight: 700; font-family: var(--mono); }
+
+    .controls {
+      padding: 1rem 2rem;
+      display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;
+    }
+    .controls input, .controls select {
+      background: var(--surface); border: 1px solid var(--border); color: var(--text);
+      padding: 0.5rem 0.75rem; border-radius: 8px; font-size: 0.9rem; outline: none;
+    }
+    .controls input:focus, .controls select:focus { border-color: var(--purple); }
+    .controls input { flex: 1; min-width: 200px; }
+    .controls .btn {
+      background: var(--purple); color: white; border: none; padding: 0.5rem 1rem;
+      border-radius: 8px; cursor: pointer; font-size: 0.85rem; font-weight: 600;
+    }
+    .controls .btn:hover { opacity: 0.9; }
+    .controls .btn.secondary { background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim); }
+
+    .grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      gap: 1rem; padding: 1rem 2rem 2rem;
+    }
+
+    .card {
+      background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+      padding: 1.25rem; transition: border-color 0.2s, transform 0.15s;
+      display: flex; flex-direction: column; gap: 0.75rem;
+    }
+    .card:hover { border-color: var(--purple); transform: translateY(-2px); }
+    .card.favorite { border-color: var(--gold); }
+
+    .card-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .card-category {
+      font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em;
+      color: var(--cyan); font-weight: 600;
+    }
+    .card-actions { display: flex; gap: 0.5rem; }
+    .card-actions button {
+      background: none; border: none; cursor: pointer; font-size: 1rem;
+      opacity: 0.5; transition: opacity 0.2s;
+    }
+    .card-actions button:hover { opacity: 1; }
+
+    .card-prompt {
+      font-family: var(--mono); font-size: 0.82rem; line-height: 1.6;
+      color: var(--text); max-height: 120px; overflow: hidden;
+      position: relative;
+    }
+    .card-prompt::after {
+      content: ''; position: absolute; bottom: 0; left: 0; right: 0;
+      height: 30px; background: linear-gradient(transparent, var(--surface));
+    }
+
+    .card-tags { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+    .tag {
+      font-size: 0.7rem; padding: 0.15rem 0.5rem; border-radius: 99px;
+      background: var(--surface2); border: 1px solid var(--border); color: var(--text-dim);
+    }
+
+    .card-footer {
+      display: flex; justify-content: space-between; align-items: center;
+      font-size: 0.75rem; color: var(--text-dim);
+    }
+    .score-bar {
+      width: 60px; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden;
+    }
+    .score-fill { height: 100%; background: linear-gradient(90deg, var(--purple), var(--cyan)); border-radius: 2px; }
+
+    .empty-state {
+      grid-column: 1 / -1; text-align: center; padding: 4rem 2rem; color: var(--text-dim);
+    }
+    .empty-state .icon { font-size: 3rem; margin-bottom: 1rem; }
+
+    @media (max-width: 640px) {
+      .header { flex-direction: column; gap: 0.75rem; }
+      .grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>🔮 Grimoire</h1>
+    <div class="stats">
+      <span><span class="num" id="stat-total">0</span> spells</span>
+      <span><span class="num" id="stat-fav">0</span> ★</span>
+      <span><span class="num" id="stat-cats">0</span> categories</span>
+      <span>avg score <span class="num" id="stat-score">—</span></span>
+    </div>
+  </div>
+
+  <div class="controls">
+    <input type="text" id="search" placeholder="Search prompts, tags, categories…" />
+    <select id="category-filter">
+      <option value="">All Categories</option>
+    </select>
+    <button class="btn secondary" id="fav-toggle">★ Favorites</button>
+    <button class="btn" id="add-btn">+ Inscribe</button>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <script>
+    // Data injected by Forge renderer or loaded from API
+    const GRIMOIRE_DATA = window.__GRIMOIRE__ || { entries: [], stats: {} };
+
+    const grid = document.getElementById('grid');
+    const searchInput = document.getElementById('search');
+    const categoryFilter = document.getElementById('category-filter');
+    let showFavOnly = false;
+
+    function render(entries) {
+      if (!entries.length) {
+        grid.innerHTML = `<div class="empty-state"><div class="icon">📖</div><p>No spells found. Inscribe your first prompt.</p></div>`;
+        return;
+      }
+      grid.innerHTML = entries.map(e => `
+        <div class="card ${e.favorite ? 'favorite' : ''}" data-id="${e.id}">
+          <div class="card-header">
+            <span class="card-category">${esc(e.category)}</span>
+            <div class="card-actions">
+              <button title="Copy" onclick="copy('${e.id}')">📋</button>
+              <button title="Favorite" onclick="fav('${e.id}')">${e.favorite ? '⭐' : '☆'}</button>
+            </div>
+          </div>
+          <div class="card-prompt">${esc(e.prompt)}</div>
+          <div class="card-tags">${e.tags.map(t => `<span class="tag">${esc(t)}</span>`).join('')}</div>
+          <div class="card-footer">
+            <span>Used ${e.usedCount || 0}×</span>
+            ${e.score ? `<div class="score-bar"><div class="score-fill" style="width:${Math.round(e.score * 100)}%"></div></div>` : '<span>—</span>'}
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function filter() {
+      let entries = GRIMOIRE_DATA.entries || [];
+      const q = searchInput.value.toLowerCase();
+      const cat = categoryFilter.value;
+      if (showFavOnly) entries = entries.filter(e => e.favorite);
+      if (cat) entries = entries.filter(e => e.category === cat);
+      if (q) entries = entries.filter(e =>
+        e.prompt.toLowerCase().includes(q) ||
+        e.tags.some(t => t.includes(q)) ||
+        e.category.includes(q)
+      );
+      render(entries);
+    }
+
+    function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+    function copy(id) { const e = GRIMOIRE_DATA.entries.find(x => x.id === id); if (e) navigator.clipboard.writeText(e.prompt); }
+    function fav(id) { const e = GRIMOIRE_DATA.entries.find(x => x.id === id); if (e) { e.favorite = !e.favorite; filter(); } }
+
+    searchInput.addEventListener('input', filter);
+    categoryFilter.addEventListener('change', filter);
+    document.getElementById('fav-toggle').addEventListener('click', () => { showFavOnly = !showFavOnly; filter(); });
+
+    // Populate categories
+    const cats = [...new Set((GRIMOIRE_DATA.entries || []).map(e => e.category))].sort();
+    cats.forEach(c => { const o = document.createElement('option'); o.value = c; o.textContent = c; categoryFilter.appendChild(o); });
+
+    // Stats
+    const s = GRIMOIRE_DATA.stats || {};
+    document.getElementById('stat-total').textContent = s.total || 0;
+    document.getElementById('stat-fav').textContent = s.favorites || 0;
+    document.getElementById('stat-cats').textContent = s.categories || 0;
+    document.getElementById('stat-score').textContent = s.avgScore ? s.avgScore.toFixed(2) : '—';
+
+    filter();
+  </script>
+</body>
+</html>

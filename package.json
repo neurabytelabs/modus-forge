@@ -1,6 +1,6 @@
 {
   "name": "modus-forge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Speak it. See it. Use it. — Turn a sentence into a personal app in seconds.",
   "main": "bin/forge.js",
   "bin": {
@@ -9,7 +9,8 @@
   "type": "module",
   "scripts": {
     "start": "node bin/forge.js",
-    "test": "node --test test/"
+    "test": "node --test test/forge.test.js test/context.test.js test/refiner.test.js test/ab-test.test.js test/persistence.test.js",
+    "serve": "node bin/forge-serve.js"
   },
   "keywords": [
     "ai",

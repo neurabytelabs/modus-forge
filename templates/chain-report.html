@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🔗 MODUS Forge — Chain Report</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --border: #1e1e2e;
+    --text: #e0e0e8;
+    --muted: #6b6b80;
+    --purple: #7C3AED;
+    --cyan: #06B6D4;
+    --green: #10B981;
+    --red: #EF4444;
+    --amber: #F59E0B;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 2rem;
+    min-height: 100vh;
+  }
+  h1 { font-size: 1.5rem; margin-bottom: 0.5rem; }
+  h1 span { color: var(--purple); }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 2rem; }
+  
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+  .card h3 { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 0.75rem; }
+  .big-num { font-size: 2rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+  .big-num.green { color: var(--green); }
+  .big-num.purple { color: var(--purple); }
+  .big-num.cyan { color: var(--cyan); }
+  .big-num.amber { color: var(--amber); }
+
+  /* Chain timeline */
+  .timeline { position: relative; padding-left: 2rem; margin: 1.5rem 0; }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 0.5rem;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(to bottom, var(--purple), var(--cyan));
+  }
+  .step {
+    position: relative;
+    margin-bottom: 1.25rem;
+    padding: 1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+  .step::before {
+    content: '';
+    position: absolute;
+    left: -1.75rem;
+    top: 1.25rem;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--purple);
+    border: 2px solid var(--bg);
+  }
+  .step.best::before { background: var(--green); box-shadow: 0 0 8px var(--green); }
+  .step-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+  .step-label { font-weight: 600; font-size: 0.9rem; }
+  .step-score { font-family: 'JetBrains Mono', monospace; font-weight: 700; }
+
+  /* Score bar */
+  .score-bar { height: 6px; border-radius: 3px; background: var(--border); margin-top: 0.5rem; overflow: hidden; }
+  .score-fill { height: 100%; border-radius: 3px; transition: width 0.5s ease; }
+  .score-fill.high { background: linear-gradient(90deg, var(--green), var(--cyan)); }
+  .score-fill.mid { background: linear-gradient(90deg, var(--amber), var(--green)); }
+  .score-fill.low { background: linear-gradient(90deg, var(--red), var(--amber)); }
+
+  /* Spinoza dimensions */
+  .dims { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-top: 0.75rem; }
+  .dim { text-align: center; }
+  .dim-label { font-size: 0.65rem; text-transform: uppercase; color: var(--muted); }
+  .dim-val { font-size: 1rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+
+  /* Context panel */
+  .context-list { list-style: none; }
+  .context-list li { padding: 0.4rem 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+  .context-list li:last-child { border-bottom: none; }
+  .context-list .label { color: var(--muted); margin-right: 0.5rem; }
+
+  .footer { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+
+  @media (max-width: 640px) {
+    body { padding: 1rem; }
+    .grid { grid-template-columns: 1fr; }
+    .dims { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+  <h1>🔗 Chain Report — <span id="promptTitle">Loading...</span></h1>
+  <p class="subtitle" id="meta">—</p>
+
+  <div class="grid">
+    <div class="card">
+      <h3>Final Score</h3>
+      <div class="big-num green" id="finalScore">—</div>
+    </div>
+    <div class="card">
+      <h3>Iterations</h3>
+      <div class="big-num purple" id="iterations">—</div>
+    </div>
+    <div class="card">
+      <h3>Duration</h3>
+      <div class="big-num cyan" id="duration">—</div>
+    </div>
+    <div class="card">
+      <h3>Model</h3>
+      <div class="big-num amber" id="model" style="font-size:1.2rem">—</div>
+    </div>
+  </div>
+
+  <h2 style="margin-bottom: 1rem; font-size: 1.1rem;">⛓️ Iteration Timeline</h2>
+  <div class="timeline" id="timeline">
+    <div class="step">
+      <div class="step-header">
+        <span class="step-label">No data loaded</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h3>🧠 Context Signals</h3>
+      <ul class="context-list" id="contextList">
+        <li><span class="label">—</span></li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>🏛️ Spinoza Dimensions (Best)</h3>
+      <div class="dims" id="dims">
+        <div class="dim"><div class="dim-label">Conatus</div><div class="dim-val">—</div></div>
+        <div class="dim"><div class="dim-label">Ratio</div><div class="dim-val">—</div></div>
+        <div class="dim"><div class="dim-label">Laetitia</div><div class="dim-val">—</div></div>
+        <div class="dim"><div class="dim-label">Natura</div><div class="dim-val">—</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer">
+    MODUS Forge · NeuraByte Labs · "A thing's power of existing is its very essence." — Spinoza
+  </div>
+
+  <script>
+    /**
+     * Chain Report — Renders pipeline results.
+     * 
+     * Usage: Set window.CHAIN_DATA = { ...pipelineResult } before this runs,
+     * or it reads from #chain-data script tag (JSON), or fetches chain-data.json.
+     */
+    async function loadData() {
+      if (window.CHAIN_DATA) return window.CHAIN_DATA;
+      const el = document.getElementById('chain-data');
+      if (el) return JSON.parse(el.textContent);
+      try {
+        const r = await fetch('chain-data.json');
+        if (r.ok) return r.json();
+      } catch {}
+      return null;
+    }
+
+    function scoreClass(s) { return s >= 0.8 ? 'high' : s >= 0.6 ? 'mid' : 'low'; }
+
+    function render(data) {
+      if (!data) return;
+
+      document.getElementById('promptTitle').textContent =
+        (data.prompt || 'Unknown').slice(0, 60) + (data.prompt?.length > 60 ? '…' : '');
+      document.getElementById('meta').textContent =
+        `${data.model || '?'} · ${new Date(data.timestamp || Date.now()).toLocaleString()} · ${data.iterations || 1} iteration(s)`;
+      document.getElementById('finalScore').textContent = (data.score || 0).toFixed(2);
+      document.getElementById('iterations').textContent = data.iterations || 1;
+      document.getElementById('duration').textContent = data.durationMs ? `${(data.durationMs / 1000).toFixed(1)}s` : '—';
+      document.getElementById('model').textContent = data.model || '?';
+
+      // Timeline
+      const timeline = document.getElementById('timeline');
+      const history = data.history || data.chainHistory || [];
+      if (history.length) {
+        const bestIdx = history.reduce((bi, h, i) => h.score > (history[bi]?.score || 0) ? i : bi, 0);
+        timeline.innerHTML = history.map((h, i) => `
+          <div class="step ${i === bestIdx ? 'best' : ''}">
+            <div class="step-header">
+              <span class="step-label">${i === 0 ? '🚀 Initial' : `🔄 Refinement #${i}`}${i === bestIdx ? ' ★' : ''}</span>
+              <span class="step-score" style="color: var(--${scoreClass(h.score) === 'high' ? 'green' : scoreClass(h.score) === 'mid' ? 'amber' : 'red'})">${(h.score || 0).toFixed(3)}</span>
+            </div>
+            <div class="score-bar"><div class="score-fill ${scoreClass(h.score)}" style="width:${(h.score || 0) * 100}%"></div></div>
+            ${h.improved === false ? '<div style="color:var(--muted);font-size:0.75rem;margin-top:0.3rem">No improvement</div>' : ''}
+          </div>
+        `).join('');
+      }
+
+      // Context
+      const ctx = data.context || {};
+      const items = Object.entries(ctx).filter(([,v]) => v).map(([k,v]) =>
+        `<li><span class="label">${k}:</span>${typeof v === 'string' ? v : JSON.stringify(v).slice(0,100)}</li>`
+      );
+      if (items.length) document.getElementById('contextList').innerHTML = items.join('');
+
+      // Spinoza dimensions
+      const v = data.validation || {};
+      const dimNames = ['conatus', 'ratio', 'laetitia', 'natura'];
+      document.getElementById('dims').innerHTML = dimNames.map(d => `
+        <div class="dim">
+          <div class="dim-label">${d}</div>
+          <div class="dim-val" style="color: var(--${(v[d]||0) >= 0.8 ? 'green' : (v[d]||0) >= 0.6 ? 'amber' : 'red'})">${(v[d] || 0).toFixed(2)}</div>
+        </div>
+      `).join('');
+    }
+
+    loadData().then(render);
+  </script>
+</body>
+</html>

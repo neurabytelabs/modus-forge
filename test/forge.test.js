@@ -112,6 +112,6 @@ describe('Provider Detection', () => {
   it('should detect openai models', () => {
     assert.equal(detectProvider('gpt-5.2'), 'openai');
     assert.equal(detectProvider('o3'), 'openai');
-    assert.equal(detectProvider('grok-4-1-fast'), 'openai');
+    assert.equal(detectProvider('grok-4-1-fast'), 'grok');
   });
 });

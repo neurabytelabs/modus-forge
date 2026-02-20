@@ -15,6 +15,9 @@ import { validate } from '../lib/rune/validator.js';
 import { render } from '../lib/renderer/html.js';
 import { preview } from '../lib/renderer/preview.js';
 import { buildSystemInstruction, detectProvider } from '../lib/rune/system-instruction.js';
+import { sense } from '../lib/context/sensors.js';
+import { loadProfile, recordForge, profileContext } from '../lib/context/profile.js';
+import { refine } from '../lib/iterate/refiner.js';
 
 const { values, positionals } = parseArgs({
   allowPositionals: true,
@@ -24,6 +27,7 @@ const { values, positionals } = parseArgs({
     output: { type: 'string', short: 'o', default: 'output' },
     lang: { type: 'string', short: 'l', default: 'en' },
     iterate: { type: 'string', short: 'i', default: '1' },
+    refine: { type: 'boolean', short: 'r', default: false },
     'no-open': { type: 'boolean', default: false },
     help: { type: 'boolean', short: 'h', default: false },
   },
@@ -45,6 +49,7 @@ Options:
   -o, --output    Output directory (default: output/)
   -l, --lang      Language (default: en)
   -i, --iterate   Generate N versions, keep the best (default: 1)
+  -r, --refine    Auto-refine if quality below threshold
       --no-open   Don't auto-open in browser
   -h, --help      Show this help
 
@@ -61,6 +66,12 @@ Models:
 
 const intent = positionals.join(' ');
 const iterations = Math.min(parseInt(values.iterate) || 1, 5);
+const doRefine = values.refine;
+
+// Context gathering
+const sensors = sense({ outputDir: values.output });
+const profile = loadProfile();
+const profCtx = profileContext(profile);
 
 console.log('');
 console.log('🔥 MODUS Forge');
@@ -68,13 +79,21 @@ console.log('─'.repeat(40));
 console.log(`📝 Intent: "${intent}"`);
 console.log(`🧠 Model: ${values.model} (${detectProvider(values.model)})`);
 console.log(`🎨 Style: ${values.style}`);
+console.log(`🌡️  Context: ${sensors.time.period} — ${sensors.time.mood}`);
+if (profile.totalForged > 0) console.log(`👤 Profile: ${profile.totalForged} apps forged, avg ${(profile.avgScore * 100).toFixed(0)}%`);
 if (iterations > 1) console.log(`🔄 Iterations: ${iterations} (best-of-N)`);
+if (doRefine) console.log(`🔧 Auto-refine: enabled`);
 console.log('');
 
 try {
-  // Step 1: RUNE Enhancement
+  // Step 1: RUNE Enhancement (now with sensor + profile context)
   console.log('⚡ L0-L7 RUNE Enhancement...');
-  const enhanced = enhance(intent, { style: values.style, lang: values.lang });
+  const enhanced = enhance(intent, {
+    style: values.style,
+    lang: values.lang,
+    sensorHint: sensors.contextHint,
+    profileHint: profCtx,
+  });
 
   let bestCode = null;
   let bestScore = -1;
@@ -104,10 +123,31 @@ try {
     console.log(`\n🏆 Best: ${bestReport.grade} (${(bestScore * 100).toFixed(0)}%)`);
   }
 
-  // Step 4: Render & Open
+  // Step 4: Auto-refine if enabled and below threshold
+  if (doRefine && bestScore < 0.75) {
+    console.log('\n🔧 Auto-refining...');
+    const result = await refine(bestCode, { model: values.model, maxRounds: 2, threshold: 0.75 });
+    if (result.improved) {
+      bestCode = result.code;
+      bestReport = result.report;
+      bestScore = (bestReport.conatus + bestReport.ratio + bestReport.laetitia + bestReport.natura) / 4;
+      console.log(`   Final: ${bestReport.grade} (${(bestScore * 100).toFixed(0)}%)`);
+    }
+  }
+
+  // Step 5: Render & Open
   const outputPath = await render(bestCode, { dir: values.output, intent });
   console.log(`\n✅ Forged: ${outputPath}`);
   console.log(`📊 ${bestCode.length.toLocaleString()} bytes | Grade: ${bestReport.grade}`);
+
+  // Step 6: Record to profile
+  recordForge(profile, {
+    intent,
+    model: values.model,
+    style: values.style,
+    grade: bestReport.grade,
+    score: bestScore,
+  });
 
   if (!values['no-open']) {
     await preview(outputPath);

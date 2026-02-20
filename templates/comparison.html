@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>⚔️ MODUS Forge — Provider Comparison</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --border: #1e1e2e;
+    --text: #e0e0e8;
+    --muted: #6b6b80;
+    --purple: #7C3AED;
+    --cyan: #06B6D4;
+    --green: #10B981;
+    --red: #EF4444;
+    --amber: #F59E0B;
+    --pink: #EC4899;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 2rem;
+    min-height: 100vh;
+  }
+  h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+  h1 span { color: var(--purple); }
+  .subtitle { color: var(--muted); font-size: 0.85rem; margin-bottom: 2rem; }
+
+  /* Summary cards */
+  .summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    text-align: center;
+  }
+  .stat-card h3 { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--muted); margin-bottom: 0.5rem; }
+  .stat-val { font-size: 1.6rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+  .winner { border-color: var(--green); box-shadow: 0 0 20px rgba(16, 185, 129, 0.1); }
+
+  /* Radar chart */
+  .radar-section { margin-bottom: 2rem; }
+  .radar-section h2 { font-size: 1.1rem; margin-bottom: 1rem; }
+  .radar-wrap { display: flex; justify-content: center; }
+  svg text { font-family: 'Inter', sans-serif; }
+
+  /* Provider columns */
+  .providers { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+  .provider-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .provider-card.is-winner { border-color: var(--green); }
+  .provider-header {
+    padding: 1rem 1.25rem;
+    display: flex; justify-content: space-between; align-items: center;
+    border-bottom: 1px solid var(--border);
+  }
+  .provider-name { font-weight: 700; font-size: 1rem; }
+  .provider-badge {
+    font-size: 0.65rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 99px;
+    background: var(--green);
+    color: var(--bg);
+    font-weight: 700;
+    display: none;
+  }
+  .is-winner .provider-badge { display: inline-block; }
+  .provider-body { padding: 1.25rem; }
+
+  /* Dimension bars */
+  .dim-row { margin-bottom: 0.75rem; }
+  .dim-row-header { display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.25rem; }
+  .dim-row-label { color: var(--muted); text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.04em; }
+  .dim-row-val { font-family: 'JetBrains Mono', monospace; font-weight: 600; }
+  .bar { height: 8px; border-radius: 4px; background: var(--border); overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 0.6s ease; }
+
+  /* Preview iframe */
+  .preview-wrap {
+    margin-top: 1rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .preview-wrap iframe {
+    width: 100%; height: 300px; border: none;
+  }
+  .preview-toggle {
+    display: block; width: 100%; padding: 0.5rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; color: var(--cyan); cursor: pointer;
+    font-size: 0.8rem; text-align: center; margin-top: 0.75rem;
+  }
+  .preview-toggle:hover { background: var(--border); }
+
+  /* Score timeline */
+  .timeline-section { margin-bottom: 2rem; }
+  .timeline-section h2 { font-size: 1.1rem; margin-bottom: 1rem; }
+  .score-table { width: 100%; border-collapse: collapse; }
+  .score-table th {
+    text-align: left; font-size: 0.7rem; text-transform: uppercase;
+    color: var(--muted); padding: 0.5rem; border-bottom: 1px solid var(--border);
+  }
+  .score-table td {
+    padding: 0.5rem; border-bottom: 1px solid var(--border);
+    font-size: 0.85rem; font-family: 'JetBrains Mono', monospace;
+  }
+  .score-table tr.winner-row td { color: var(--green); font-weight: 700; }
+
+  .footer { text-align: center; color: var(--muted); font-size: 0.75rem; margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+
+  @media (max-width: 640px) {
+    body { padding: 1rem; }
+    .providers { grid-template-columns: 1fr; }
+    .summary { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+  <h1>⚔️ Provider Comparison — <span id="promptTitle">Loading...</span></h1>
+  <p class="subtitle" id="meta">—</p>
+
+  <div class="summary" id="summary"></div>
+
+  <div class="radar-section">
+    <h2>🏛️ Spinoza Dimensions Radar</h2>
+    <div class="radar-wrap">
+      <svg id="radar" width="400" height="400" viewBox="0 0 400 400"></svg>
+    </div>
+  </div>
+
+  <div class="providers" id="providers"></div>
+
+  <div class="timeline-section">
+    <h2>📊 Score Table</h2>
+    <table class="score-table" id="scoreTable">
+      <thead><tr><th>Provider</th><th>Conatus</th><th>Ratio</th><th>Laetitia</th><th>Natura</th><th>Total</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="footer">
+    MODUS Forge · NeuraByte Labs · "All things excellent are as difficult as they are rare." — Spinoza
+  </div>
+
+  <script>
+    const PROVIDER_COLORS = {
+      gemini: '#06B6D4',
+      claude: '#7C3AED',
+      openai: '#10B981',
+      grok: '#F59E0B',
+      ollama: '#EC4899',
+    };
+
+    function detectProvider(model) {
+      if (!model) return 'unknown';
+      const m = model.toLowerCase();
+      if (/gemini|google/.test(m)) return 'gemini';
+      if (/claude|anthropic/.test(m)) return 'claude';
+      if (/gpt|o[0-9]|openai/.test(m)) return 'openai';
+      if (/grok|xai/.test(m)) return 'grok';
+      if (/llama|mistral|qwen|phi|gemma|ollama|deepseek/.test(m)) return 'ollama';
+      return 'unknown';
+    }
+
+    function dimColor(val) {
+      return val >= 0.8 ? 'var(--green)' : val >= 0.6 ? 'var(--amber)' : 'var(--red)';
+    }
+
+    function totalScore(v) {
+      if (!v) return 0;
+      return ((v.conatus || 0) + (v.ratio || 0) + (v.laetitia || 0) + (v.natura || 0)) / 4;
+    }
+
+    async function loadData() {
+      if (window.COMPARISON_DATA) return window.COMPARISON_DATA;
+      const el = document.getElementById('comparison-data');
+      if (el) return JSON.parse(el.textContent);
+      try { const r = await fetch('comparison-data.json'); if (r.ok) return r.json(); } catch {}
+      // Demo data
+      return {
+        prompt: 'Demo: Build a weather dashboard',
+        timestamp: new Date().toISOString(),
+        results: [
+          { model: 'gemini-3-pro', validation: { conatus: 0.9, ratio: 0.85, laetitia: 0.88, natura: 0.82 }, html: '<h1>Gemini Output</h1>', durationMs: 4200 },
+          { model: 'claude-sonnet-4', validation: { conatus: 0.85, ratio: 0.92, laetitia: 0.80, natura: 0.88 }, html: '<h1>Claude Output</h1>', durationMs: 5100 },
+          { model: 'gpt-5.2', validation: { conatus: 0.82, ratio: 0.88, laetitia: 0.84, natura: 0.86 }, html: '<h1>OpenAI Output</h1>', durationMs: 3800 },
+        ],
+      };
+    }
+
+    function drawRadar(results) {
+      const svg = document.getElementById('radar');
+      const cx = 200, cy = 200, r = 150;
+      const dims = ['conatus', 'ratio', 'laetitia', 'natura'];
+      const angles = dims.map((_, i) => (Math.PI * 2 * i / dims.length) - Math.PI / 2);
+
+      // Grid
+      let grid = '';
+      for (let ring = 1; ring <= 4; ring++) {
+        const rr = r * ring / 4;
+        const pts = angles.map(a => `${cx + rr * Math.cos(a)},${cy + rr * Math.sin(a)}`).join(' ');
+        grid += `<polygon points="${pts}" fill="none" stroke="#1e1e2e" stroke-width="1"/>`;
+      }
+      // Axes + labels
+      const labels = dims.map((d, i) => {
+        const x = cx + (r + 25) * Math.cos(angles[i]);
+        const y = cy + (r + 25) * Math.sin(angles[i]);
+        grid += `<line x1="${cx}" y1="${cy}" x2="${cx + r * Math.cos(angles[i])}" y2="${cy + r * Math.sin(angles[i])}" stroke="#1e1e2e" stroke-width="1"/>`;
+        return `<text x="${x}" y="${y}" fill="#6b6b80" font-size="11" text-anchor="middle" dominant-baseline="middle">${d.charAt(0).toUpperCase() + d.slice(1)}</text>`;
+      }).join('');
+
+      // Data polygons
+      let polys = '';
+      results.forEach(res => {
+        const provider = detectProvider(res.model);
+        const color = PROVIDER_COLORS[provider] || '#888';
+        const v = res.validation || {};
+        const pts = dims.map((d, i) => {
+          const val = v[d] || 0;
+          return `${cx + r * val * Math.cos(angles[i])},${cy + r * val * Math.sin(angles[i])}`;
+        }).join(' ');
+        polys += `<polygon points="${pts}" fill="${color}22" stroke="${color}" stroke-width="2"/>`;
+        // Dots
+        dims.forEach((d, i) => {
+          const val = v[d] || 0;
+          polys += `<circle cx="${cx + r * val * Math.cos(angles[i])}" cy="${cy + r * val * Math.sin(angles[i])}" r="4" fill="${color}"/>`;
+        });
+      });
+
+      svg.innerHTML = grid + labels + polys;
+    }
+
+    function render(data) {
+      if (!data) return;
+
+      const results = data.results || [];
+      document.getElementById('promptTitle').textContent =
+        (data.prompt || '?').slice(0, 60) + ((data.prompt?.length || 0) > 60 ? '…' : '');
+      document.getElementById('meta').textContent =
+        `${results.length} providers · ${new Date(data.timestamp || Date.now()).toLocaleString()}`;
+
+      // Compute totals & find winner
+      const scored = results.map(r => ({ ...r, total: totalScore(r.validation), provider: detectProvider(r.model) }));
+      scored.sort((a, b) => b.total - a.total);
+      const winnerModel = scored[0]?.model;
+
+      // Summary cards
+      const summaryEl = document.getElementById('summary');
+      summaryEl.innerHTML = scored.map(r => `
+        <div class="stat-card ${r.model === winnerModel ? 'winner' : ''}">
+          <h3>${r.provider} ${r.model === winnerModel ? '👑' : ''}</h3>
+          <div class="stat-val" style="color: ${PROVIDER_COLORS[r.provider] || '#888'}">${r.total.toFixed(3)}</div>
+          <div style="color:var(--muted);font-size:0.75rem;margin-top:0.25rem">${r.model}</div>
+          ${r.durationMs ? `<div style="color:var(--muted);font-size:0.7rem">${(r.durationMs/1000).toFixed(1)}s</div>` : ''}
+        </div>
+      `).join('');
+
+      // Radar
+      drawRadar(scored);
+
+      // Provider detail cards
+      const providersEl = document.getElementById('providers');
+      const dims = ['conatus', 'ratio', 'laetitia', 'natura'];
+      providersEl.innerHTML = scored.map(r => {
+        const v = r.validation || {};
+        const color = PROVIDER_COLORS[r.provider] || '#888';
+        const dimBars = dims.map(d => {
+          const val = v[d] || 0;
+          return `
+            <div class="dim-row">
+              <div class="dim-row-header">
+                <span class="dim-row-label">${d}</span>
+                <span class="dim-row-val" style="color:${dimColor(val)}">${val.toFixed(2)}</span>
+              </div>
+              <div class="bar"><div class="bar-fill" style="width:${val*100}%;background:${color}"></div></div>
+            </div>`;
+        }).join('');
+
+        const previewId = `preview-${r.provider}`;
+        return `
+          <div class="provider-card ${r.model === winnerModel ? 'is-winner' : ''}">
+            <div class="provider-header">
+              <span class="provider-name" style="color:${color}">${r.provider.charAt(0).toUpperCase() + r.provider.slice(1)}</span>
+              <span class="provider-badge">WINNER</span>
+            </div>
+            <div class="provider-body">
+              <div style="font-size:0.8rem;color:var(--muted);margin-bottom:1rem">${r.model}</div>
+              ${dimBars}
+              ${r.html ? `
+                <button class="preview-toggle" onclick="togglePreview('${previewId}', this)">▶ Show Preview</button>
+                <div class="preview-wrap" id="${previewId}" style="display:none">
+                  <iframe srcdoc="${r.html.replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')}"></iframe>
+                </div>
+              ` : ''}
+            </div>
+          </div>`;
+      }).join('');
+
+      // Score table
+      const tbody = document.querySelector('#scoreTable tbody');
+      tbody.innerHTML = scored.map(r => {
+        const v = r.validation || {};
+        const isWinner = r.model === winnerModel;
+        return `<tr class="${isWinner ? 'winner-row' : ''}">
+          <td style="color:${PROVIDER_COLORS[r.provider] || '#888'}">${r.provider} ${isWinner ? '👑' : ''}</td>
+          <td>${(v.conatus||0).toFixed(2)}</td>
+          <td>${(v.ratio||0).toFixed(2)}</td>
+          <td>${(v.laetitia||0).toFixed(2)}</td>
+          <td>${(v.natura||0).toFixed(2)}</td>
+          <td>${r.total.toFixed(3)}</td>
+        </tr>`;
+      }).join('');
+    }
+
+    function togglePreview(id, btn) {
+      const el = document.getElementById(id);
+      if (el.style.display === 'none') {
+        el.style.display = 'block';
+        // Re-set srcdoc from data attribute for proper rendering
+        const iframe = el.querySelector('iframe');
+        const srcdoc = iframe.getAttribute('srcdoc')
+          .replace(/&quot;/g, '"').replace(/&lt;/g, '<').replace(/&gt;/g, '>');
+        iframe.srcdoc = srcdoc;
+        btn.textContent = '▼ Hide Preview';
+      } else {
+        el.style.display = 'none';
+        btn.textContent = '▶ Show Preview';
+      }
+    }
+
+    loadData().then(render);
+  </script>
+</body>
+</html>

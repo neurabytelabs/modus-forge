@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MODUS Forge — Generation Tracker</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --border: #1e1e2e;
+    --text: #e2e2e8;
+    --dim: #6b6b80;
+    --purple: #7C3AED;
+    --cyan: #06B6D4;
+    --green: #10B981;
+    --amber: #F59E0B;
+    --red: #EF4444;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 1.5rem; }
+  h1 span { color: var(--cyan); }
+
+  .controls {
+    display: flex; gap: 0.5rem; margin-bottom: 1.5rem; flex-wrap: wrap;
+  }
+  .controls button {
+    background: var(--surface); border: 1px solid var(--border);
+    color: var(--dim); padding: 0.4rem 0.8rem; border-radius: 6px;
+    cursor: pointer; font-family: inherit; font-size: 0.75rem;
+    transition: all 0.2s;
+  }
+  .controls button:hover, .controls button.active {
+    color: var(--cyan); border-color: var(--cyan);
+  }
+
+  .timeline {
+    position: relative; padding-left: 2rem;
+  }
+  .timeline::before {
+    content: ''; position: absolute; left: 0.6rem; top: 0; bottom: 0;
+    width: 2px; background: var(--border);
+  }
+  .entry {
+    position: relative; margin-bottom: 1.5rem;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1rem;
+    transition: border-color 0.2s;
+  }
+  .entry:hover { border-color: var(--purple); }
+  .entry::before {
+    content: ''; position: absolute; left: -1.65rem; top: 1.2rem;
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--purple); border: 2px solid var(--bg);
+  }
+  .entry.high::before { background: var(--green); }
+  .entry.mid::before { background: var(--amber); }
+  .entry.low::before { background: var(--red); }
+
+  .entry-header {
+    display: flex; justify-content: space-between; align-items: center;
+    margin-bottom: 0.5rem;
+  }
+  .entry-prompt { font-size: 0.9rem; color: var(--text); }
+  .entry-time { font-size: 0.7rem; color: var(--dim); }
+  .entry-meta {
+    display: flex; gap: 1rem; font-size: 0.7rem; color: var(--dim);
+  }
+  .entry-meta .model { color: var(--cyan); }
+  .entry-meta .score { font-weight: bold; }
+  .score-high { color: var(--green); }
+  .score-mid { color: var(--amber); }
+  .score-low { color: var(--red); }
+
+  .chart-container {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 1rem; margin-bottom: 1.5rem;
+  }
+  .chart-title { font-size: 0.8rem; color: var(--dim); margin-bottom: 0.5rem; }
+  canvas { width: 100%; height: 120px; }
+
+  .stats-row {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.75rem; margin-bottom: 1.5rem;
+  }
+  .stat-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 8px; padding: 0.75rem; text-align: center;
+  }
+  .stat-value { font-size: 1.5rem; font-weight: bold; color: var(--purple); }
+  .stat-label { font-size: 0.7rem; color: var(--dim); margin-top: 0.25rem; }
+
+  .empty { text-align: center; color: var(--dim); padding: 3rem; }
+</style>
+</head>
+<body>
+
+<h1>🔥 <span>Generation Tracker</span></h1>
+
+<div class="stats-row" id="stats"></div>
+
+<div class="chart-container">
+  <div class="chart-title">Score Trend (last 20 generations)</div>
+  <canvas id="trendChart"></canvas>
+</div>
+
+<div class="controls" id="filters"></div>
+
+<div class="timeline" id="timeline">
+  <div class="empty">No generations yet. Run <code>modus-forge "your idea"</code> to start.</div>
+</div>
+
+<script type="module">
+  // Load history from localStorage or injected data
+  const STORAGE_KEY = 'modus-forge-history';
+
+  function loadHistory() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch {}
+    // Demo data for development
+    return window.__FORGE_HISTORY || [];
+  }
+
+  function scoreClass(score) {
+    if (score >= 80) return 'high';
+    if (score >= 60) return 'mid';
+    return 'low';
+  }
+
+  function relativeTime(ts) {
+    const diff = Date.now() - new Date(ts).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return `${mins}m ago`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h ago`;
+    const days = Math.floor(hours / 24);
+    return `${days}d ago`;
+  }
+
+  function renderStats(entries) {
+    const container = document.getElementById('stats');
+    const total = entries.length;
+    const avgScore = total ? Math.round(entries.reduce((s, e) => s + (e.score || 0), 0) / total) : 0;
+    const models = new Set(entries.map(e => e.model)).size;
+    const topModel = entries.length ? mode(entries.map(e => e.model)) : '—';
+
+    container.innerHTML = `
+      <div class="stat-card"><div class="stat-value">${total}</div><div class="stat-label">Total Forged</div></div>
+      <div class="stat-card"><div class="stat-value">${avgScore}</div><div class="stat-label">Avg Score</div></div>
+      <div class="stat-card"><div class="stat-value">${models}</div><div class="stat-label">Models Used</div></div>
+      <div class="stat-card"><div class="stat-value" style="font-size:0.9rem">${topModel}</div><div class="stat-label">Top Model</div></div>
+    `;
+  }
+
+  function mode(arr) {
+    const freq = {};
+    arr.forEach(v => freq[v] = (freq[v] || 0) + 1);
+    return Object.entries(freq).sort((a, b) => b[1] - a[1])[0]?.[0] || '—';
+  }
+
+  function renderTimeline(entries, filter = 'all') {
+    const container = document.getElementById('timeline');
+    let filtered = filter === 'all' ? entries : entries.filter(e => e.model === filter);
+    filtered = filtered.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+
+    if (!filtered.length) {
+      container.innerHTML = '<div class="empty">No matching generations.</div>';
+      return;
+    }
+
+    container.innerHTML = filtered.map(e => {
+      const sc = scoreClass(e.score || 0);
+      return `
+        <div class="entry ${sc}">
+          <div class="entry-header">
+            <span class="entry-prompt">${escHtml(e.prompt || 'untitled')}</span>
+            <span class="entry-time">${relativeTime(e.timestamp)}</span>
+          </div>
+          <div class="entry-meta">
+            <span class="model">${e.model || '?'}</span>
+            <span class="score score-${sc}">${e.score || 0}/100</span>
+            ${e.iterations ? `<span>${e.iterations} iterations</span>` : ''}
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderFilters(entries) {
+    const models = [...new Set(entries.map(e => e.model))];
+    const container = document.getElementById('filters');
+    const buttons = [{ label: 'All', value: 'all' }, ...models.map(m => ({ label: m, value: m }))];
+    container.innerHTML = buttons.map(b =>
+      `<button data-filter="${b.value}" class="${b.value === 'all' ? 'active' : ''}">${b.label}</button>`
+    ).join('');
+    container.addEventListener('click', e => {
+      if (e.target.tagName !== 'BUTTON') return;
+      container.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      e.target.classList.add('active');
+      renderTimeline(entries, e.target.dataset.filter);
+    });
+  }
+
+  function renderChart(entries) {
+    const canvas = document.getElementById('trendChart');
+    const ctx = canvas.getContext('2d');
+    canvas.width = canvas.offsetWidth * 2;
+    canvas.height = 240;
+    ctx.scale(2, 2); // retina
+
+    const recent = entries.slice(-20);
+    if (recent.length < 2) return;
+
+    const w = canvas.offsetWidth;
+    const h = 120;
+    const pad = 10;
+    const plotW = w - pad * 2;
+    const plotH = h - pad * 2;
+
+    ctx.strokeStyle = '#1e1e2e';
+    ctx.lineWidth = 0.5;
+    for (let i = 0; i <= 4; i++) {
+      const y = pad + (plotH / 4) * i;
+      ctx.beginPath(); ctx.moveTo(pad, y); ctx.lineTo(w - pad, y); ctx.stroke();
+    }
+
+    const grad = ctx.createLinearGradient(0, pad, 0, h - pad);
+    grad.addColorStop(0, 'rgba(124, 58, 237, 0.3)');
+    grad.addColorStop(1, 'rgba(124, 58, 237, 0)');
+
+    ctx.beginPath();
+    recent.forEach((e, i) => {
+      const x = pad + (plotW / (recent.length - 1)) * i;
+      const y = pad + plotH - (plotH * (e.score || 0) / 100);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.strokeStyle = '#7C3AED';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Fill area
+    const lastX = pad + plotW;
+    const lastY = pad + plotH - (plotH * (recent[recent.length - 1]?.score || 0) / 100);
+    ctx.lineTo(lastX, h - pad);
+    ctx.lineTo(pad, h - pad);
+    ctx.closePath();
+    ctx.fillStyle = grad;
+    ctx.fill();
+
+    // Dots
+    recent.forEach((e, i) => {
+      const x = pad + (plotW / (recent.length - 1)) * i;
+      const y = pad + plotH - (plotH * (e.score || 0) / 100);
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = e.score >= 80 ? '#10B981' : e.score >= 60 ? '#F59E0B' : '#EF4444';
+      ctx.fill();
+    });
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // Init
+  const history = loadHistory();
+  renderStats(history);
+  renderFilters(history);
+  renderTimeline(history);
+  renderChart(history);
+</script>
+
+</body>
+</html>

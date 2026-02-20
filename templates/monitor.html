@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MODUS Forge — Live Monitor</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --border: #1e1e2e;
+    --text: #e2e2e8;
+    --dim: #6b6b80;
+    --purple: #7C3AED;
+    --cyan: #06B6D4;
+    --green: #10B981;
+    --amber: #F59E0B;
+    --red: #EF4444;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'JetBrains Mono', 'SF Mono', monospace;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    padding: 2rem;
+  }
+  h1 { font-size: 1.4rem; margin-bottom: 1rem; }
+  h1 span { color: var(--green); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+  @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow: hidden;
+  }
+  .panel-title {
+    font-size: 0.75rem;
+    color: var(--dim);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.75rem;
+  }
+
+  /* Conatus gauge */
+  .gauge {
+    display: flex; align-items: center; gap: 1rem;
+  }
+  .gauge-ring {
+    width: 80px; height: 80px; position: relative;
+  }
+  .gauge-ring svg { transform: rotate(-90deg); }
+  .gauge-ring circle {
+    fill: none; stroke-width: 6; cx: 40; cy: 40; r: 34;
+  }
+  .gauge-bg { stroke: var(--border); }
+  .gauge-fill {
+    stroke: var(--green);
+    stroke-dasharray: 213.6;
+    stroke-dashoffset: 0;
+    stroke-linecap: round;
+    transition: stroke-dashoffset 1s ease, stroke 0.5s;
+  }
+  .gauge-value {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.1rem; font-weight: bold;
+  }
+  .gauge-meta { font-size: 0.8rem; }
+  .gauge-meta .label { color: var(--dim); }
+
+  /* Provider status */
+  .provider-list { list-style: none; }
+  .provider-list li {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 0.4rem 0; border-bottom: 1px solid var(--border);
+    font-size: 0.8rem;
+  }
+  .provider-list li:last-child { border: none; }
+  .status-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    display: inline-block; margin-right: 0.5rem;
+  }
+  .status-dot.ok { background: var(--green); }
+  .status-dot.warn { background: var(--amber); }
+  .status-dot.down { background: var(--red); }
+
+  /* Log feed */
+  .log-feed {
+    max-height: 300px; overflow-y: auto;
+    font-size: 0.75rem; line-height: 1.6;
+  }
+  .log-feed .entry {
+    padding: 0.3rem 0; border-bottom: 1px solid var(--border);
+  }
+  .log-feed .ts { color: var(--dim); margin-right: 0.5rem; }
+  .log-feed .lvl-info { color: var(--cyan); }
+  .log-feed .lvl-warn { color: var(--amber); }
+  .log-feed .lvl-error { color: var(--red); }
+  .log-feed .lvl-success { color: var(--green); }
+
+  /* Spinoza scores */
+  .scores-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;
+  }
+  .score-item { text-align: center; }
+  .score-item .val { font-size: 1.4rem; font-weight: bold; }
+  .score-item .lbl { font-size: 0.65rem; color: var(--dim); text-transform: uppercase; }
+
+  .full-width { grid-column: 1 / -1; }
+
+  /* Pulse animation */
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+  .pulse { animation: pulse 2s ease-in-out infinite; }
+</style>
+</head>
+<body>
+
+<h1>⚡ <span>Live Monitor</span></h1>
+
+<div class="grid">
+  <!-- Conatus Gauge -->
+  <div class="panel">
+    <div class="panel-title">Conatus Level</div>
+    <div class="gauge">
+      <div class="gauge-ring">
+        <svg width="80" height="80">
+          <circle class="gauge-bg" />
+          <circle class="gauge-fill" id="conatusRing" />
+        </svg>
+        <div class="gauge-value" id="conatusVal">—</div>
+      </div>
+      <div class="gauge-meta">
+        <div id="conatusLabel" class="label">Loading...</div>
+        <div id="conatusIter" style="color:var(--purple); font-size:0.9rem; margin-top:0.25rem;">IT-?</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Provider Status -->
+  <div class="panel">
+    <div class="panel-title">LLM Providers</div>
+    <ul class="provider-list" id="providers">
+      <li><span><span class="status-dot"></span>Loading...</span></li>
+    </ul>
+  </div>
+
+  <!-- Spinoza Validation Scores -->
+  <div class="panel">
+    <div class="panel-title">Last Validation (Spinoza)</div>
+    <div class="scores-grid" id="scores">
+      <div class="score-item"><div class="val" style="color:var(--green)">—</div><div class="lbl">Conatus</div></div>
+      <div class="score-item"><div class="val" style="color:var(--cyan)">—</div><div class="lbl">Ratio</div></div>
+      <div class="score-item"><div class="val" style="color:var(--purple)">—</div><div class="lbl">Laetitia</div></div>
+      <div class="score-item"><div class="val" style="color:var(--amber)">—</div><div class="lbl">Natura</div></div>
+    </div>
+  </div>
+
+  <!-- Active Sprint -->
+  <div class="panel">
+    <div class="panel-title">Active Sprint</div>
+    <div id="sprintInfo" style="font-size:0.85rem;">
+      <div style="color:var(--dim)">No active sprint</div>
+    </div>
+  </div>
+
+  <!-- Live Log -->
+  <div class="panel full-width">
+    <div class="panel-title">Event Log <span class="pulse" style="color:var(--green)">●</span></div>
+    <div class="log-feed" id="logFeed"></div>
+  </div>
+</div>
+
+<script>
+  const SSE_URL = '/events'; // forge-serve SSE endpoint
+  const STATE_KEY = 'modus-forge-monitor';
+
+  // Conatus gauge
+  function setConatus(val, iteration) {
+    const ring = document.getElementById('conatusRing');
+    const valEl = document.getElementById('conatusVal');
+    const label = document.getElementById('conatusLabel');
+    const iter = document.getElementById('conatusIter');
+
+    const circumference = 213.6;
+    ring.style.strokeDashoffset = circumference * (1 - val);
+    ring.style.stroke = val >= 0.8 ? 'var(--green)' : val >= 0.5 ? 'var(--amber)' : 'var(--red)';
+    valEl.textContent = Math.round(val * 100) + '%';
+    label.textContent = val >= 0.8 ? 'Maximum drive' : val >= 0.5 ? 'Moderate' : 'Low energy';
+    iter.textContent = `IT-${String(iteration).padStart(2, '0')}`;
+  }
+
+  // Providers
+  function setProviders(providers) {
+    const ul = document.getElementById('providers');
+    ul.innerHTML = providers.map(p => `
+      <li>
+        <span><span class="status-dot ${p.status}"></span>${p.name}</span>
+        <span style="color:var(--dim)">${p.latency || '—'}</span>
+      </li>
+    `).join('');
+  }
+
+  // Scores
+  function setScores(s) {
+    const grid = document.getElementById('scores');
+    const items = [
+      { val: s.conatus, label: 'Conatus', color: 'var(--green)' },
+      { val: s.ratio, label: 'Ratio', color: 'var(--cyan)' },
+      { val: s.laetitia, label: 'Laetitia', color: 'var(--purple)' },
+      { val: s.natura, label: 'Natura', color: 'var(--amber)' },
+    ];
+    grid.innerHTML = items.map(i => `
+      <div class="score-item">
+        <div class="val" style="color:${i.color}">${i.val ?? '—'}</div>
+        <div class="lbl">${i.label}</div>
+      </div>
+    `).join('');
+  }
+
+  // Log
+  function addLog(level, msg) {
+    const feed = document.getElementById('logFeed');
+    const ts = new Date().toLocaleTimeString();
+    const div = document.createElement('div');
+    div.className = 'entry';
+    div.innerHTML = `<span class="ts">${ts}</span><span class="lvl-${level}">[${level}]</span> ${msg}`;
+    feed.prepend(div);
+    while (feed.children.length > 100) feed.removeChild(feed.lastChild);
+  }
+
+  // SSE connection
+  function connectSSE() {
+    try {
+      const es = new EventSource(SSE_URL);
+      es.onmessage = (ev) => {
+        try {
+          const data = JSON.parse(ev.data);
+          if (data.conatus !== undefined) setConatus(data.conatus, data.iteration || 0);
+          if (data.providers) setProviders(data.providers);
+          if (data.scores) setScores(data.scores);
+          if (data.log) addLog(data.log.level || 'info', data.log.message);
+        } catch {}
+      };
+      es.onerror = () => {
+        addLog('warn', 'SSE disconnected — retrying...');
+        es.close();
+        setTimeout(connectSSE, 3000);
+      };
+      addLog('info', 'Connected to forge-serve');
+    } catch {
+      addLog('error', 'SSE not available — using static mode');
+    }
+  }
+
+  // Load from state file or defaults
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STATE_KEY);
+      if (raw) {
+        const state = JSON.parse(raw);
+        if (state.conatus !== undefined) setConatus(state.conatus, state.iteration);
+        if (state.scores) setScores(state.scores);
+        return;
+      }
+    } catch {}
+    // Defaults
+    setConatus(0.95, 6);
+    setProviders([
+      { name: 'Gemini (Antigravity)', status: 'ok', latency: '~1.2s' },
+      { name: 'Claude (Antigravity)', status: 'ok', latency: '~2.1s' },
+      { name: 'OpenAI (Direct)', status: 'ok', latency: '~1.8s' },
+      { name: 'Grok (Direct)', status: 'warn', latency: '~3.5s' },
+    ]);
+    setScores({ conatus: 92, ratio: 88, laetitia: 85, natura: 90 });
+    addLog('info', 'Monitor initialized (static mode)');
+    addLog('success', 'Forge Sprint IT-06 — Reflection Sprint active');
+  }
+
+  loadState();
+  connectSSE();
+</script>
+
+</body>
+</html>

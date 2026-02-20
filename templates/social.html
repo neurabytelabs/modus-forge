@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MODUS Forge — Social Pulse</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --border: #1e1e2e;
+    --purple: #7C3AED;
+    --cyan: #06B6D4;
+    --text: #e0e0e8;
+    --muted: #6b7280;
+    --green: #10B981;
+    --orange: #F59E0B;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    padding: 2rem;
+    line-height: 1.6;
+  }
+  h1 {
+    font-size: 1.5rem;
+    background: linear-gradient(135deg, var(--purple), var(--cyan));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 0.5rem;
+  }
+  .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.875rem; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+  }
+  .panel h2 { font-size: 1rem; color: var(--cyan); margin-bottom: 1rem; }
+  .repo {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .repo:last-child { border-bottom: none; }
+  .repo-name { font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--purple); }
+  .repo-stars { color: var(--orange); font-size: 0.8rem; }
+  .repo-lang { color: var(--muted); font-size: 0.75rem; }
+  .mood-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--purple), var(--cyan));
+    color: white;
+    margin-bottom: 1rem;
+  }
+  .notif-item {
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 0.85rem;
+  }
+  .notif-item:last-child { border-bottom: none; }
+  .empty { color: var(--muted); font-style: italic; }
+  .topic-bar {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.5rem;
+  }
+  .topic-tag {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    background: var(--border);
+    color: var(--muted);
+  }
+  .topic-tag.active { background: var(--purple); color: white; }
+  @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+  <h1>🌐 Social Pulse</h1>
+  <p class="subtitle">GitHub trending & notifications — MODUS Forge context sensor</p>
+
+  <div id="app">
+    <div class="mood-badge" id="mood">Loading...</div>
+    <div class="grid">
+      <div class="panel">
+        <h2>🔥 Trending Repos</h2>
+        <div id="trending"><p class="empty">Fetching...</p></div>
+      </div>
+      <div class="panel">
+        <h2>🔔 Notifications</h2>
+        <div id="notifications"><p class="empty">Fetching...</p></div>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>📊 Topic Distribution</h2>
+      <div class="topic-bar" id="topics"></div>
+    </div>
+  </div>
+
+  <script>
+    // This template is rendered with data injected by forge-serve.js
+    // For standalone use, it shows sample data
+    const SAMPLE = {
+      mood: 'inspired',
+      trending: [
+        { name: 'openai/codex', stars: 12500, language: 'Python', topic: 'ai' },
+        { name: 'vercel/next.js', stars: 8700, language: 'TypeScript', topic: 'web' },
+        { name: 'rust-lang/rust', stars: 6200, language: 'Rust', topic: 'systems' },
+        { name: 'astral-sh/uv', stars: 5100, language: 'Rust', topic: 'devtools' },
+        { name: 'anthropics/claude', stars: 4300, language: 'Python', topic: 'ai' },
+      ],
+      notifications: ['PR review requested: fix auth flow', 'Issue assigned: dashboard layout', 'Release: v2.1.0'],
+    };
+
+    function render(data) {
+      document.getElementById('mood').textContent = `Mood: ${data.mood}`;
+
+      const trendingEl = document.getElementById('trending');
+      if (data.trending.length === 0) {
+        trendingEl.innerHTML = '<p class="empty">No trending data available</p>';
+      } else {
+        trendingEl.innerHTML = data.trending.map(r => `
+          <div class="repo">
+            <div>
+              <div class="repo-name">${r.name}</div>
+              <div class="repo-lang">${r.language || 'Unknown'}</div>
+            </div>
+            <div class="repo-stars">⭐ ${r.stars.toLocaleString()}</div>
+          </div>
+        `).join('');
+      }
+
+      const notifEl = document.getElementById('notifications');
+      if (data.notifications.length === 0) {
+        notifEl.innerHTML = '<p class="empty">All clear — no notifications</p>';
+      } else {
+        notifEl.innerHTML = data.notifications.map(n =>
+          `<div class="notif-item">📌 ${n}</div>`
+        ).join('');
+      }
+
+      // Topic distribution
+      const topicCounts = {};
+      for (const r of data.trending) topicCounts[r.topic] = (topicCounts[r.topic] || 0) + 1;
+      const topicsEl = document.getElementById('topics');
+      const allTopics = ['ai', 'web', 'devtools', 'systems', 'default'];
+      topicsEl.innerHTML = allTopics.map(t =>
+        `<span class="topic-tag ${topicCounts[t] ? 'active' : ''}">${t} ${topicCounts[t] || 0}</span>`
+      ).join('');
+    }
+
+    // Try to load from window.__FORGE_DATA__ (injected by serve) or use sample
+    const data = window.__FORGE_DATA__?.social || SAMPLE;
+    render(data);
+  </script>
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🧬 Genetic Evolution Dashboard — MODUS Forge</title>
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --border: #1e1e2e;
+    --text: #e0e0e0;
+    --dim: #666;
+    --purple: #7C3AED;
+    --cyan: #06B6D4;
+    --green: #10B981;
+    --red: #EF4444;
+    --amber: #F59E0B;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: var(--bg); color: var(--text); font-family: 'Inter', system-ui, sans-serif; padding: 2rem; }
+  h1 { font-size: 1.8rem; margin-bottom: 0.3rem; }
+  h1 span { color: var(--purple); }
+  .subtitle { color: var(--dim); font-size: 0.9rem; margin-bottom: 2rem; font-style: italic; }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 2rem; }
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 1.5rem; }
+  .panel h2 { font-size: 1rem; color: var(--cyan); margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .full { grid-column: 1 / -1; }
+
+  /* Fitness Chart */
+  .chart-container { position: relative; width: 100%; height: 250px; }
+  canvas { width: 100% !important; height: 100% !important; }
+
+  /* Population Table */
+  table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+  th { text-align: left; color: var(--dim); padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); font-weight: 500; }
+  td { padding: 0.5rem 0.8rem; border-bottom: 1px solid var(--border); }
+  tr:hover td { background: rgba(124, 58, 237, 0.05); }
+  .rank { color: var(--amber); font-weight: 700; }
+  .score-bar { display: inline-block; height: 6px; border-radius: 3px; background: linear-gradient(90deg, var(--purple), var(--cyan)); }
+  .gene-tag { display: inline-block; background: var(--border); padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; margin: 1px; font-family: 'JetBrains Mono', monospace; }
+
+  /* Stats */
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; }
+  .stat { text-align: center; }
+  .stat-value { font-size: 1.6rem; font-weight: 700; font-family: 'JetBrains Mono', monospace; }
+  .stat-value.purple { color: var(--purple); }
+  .stat-value.cyan { color: var(--cyan); }
+  .stat-value.green { color: var(--green); }
+  .stat-value.amber { color: var(--amber); }
+  .stat-label { font-size: 0.75rem; color: var(--dim); text-transform: uppercase; letter-spacing: 0.05em; }
+
+  /* Spinoza Radar */
+  .radar-container { display: flex; justify-content: center; align-items: center; }
+  .radar-container svg { max-width: 220px; }
+
+  /* Gene diff */
+  .gene-diff { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; line-height: 1.6; white-space: pre-wrap; color: var(--dim); max-height: 200px; overflow-y: auto; }
+  .gene-diff .added { color: var(--green); }
+  .gene-diff .removed { color: var(--red); text-decoration: line-through; }
+
+  @media (max-width: 768px) {
+    .grid { grid-template-columns: 1fr; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+  }
+</style>
+</head>
+<body>
+  <h1>🧬 Genetic <span>Evolution</span></h1>
+  <p class="subtitle">"By perfection I understand the same as reality." — Spinoza, Ethics II, Def 6</p>
+
+  <div class="panel full" style="margin-bottom: 1.5rem;">
+    <div class="stats-grid" id="stats">
+      <div class="stat"><div class="stat-value purple" id="s-gen">—</div><div class="stat-label">Generation</div></div>
+      <div class="stat"><div class="stat-value cyan" id="s-best">—</div><div class="stat-label">Best Fitness</div></div>
+      <div class="stat"><div class="stat-value green" id="s-avg">—</div><div class="stat-label">Avg Fitness</div></div>
+      <div class="stat"><div class="stat-value amber" id="s-evals">—</div><div class="stat-label">Evaluations</div></div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <h2>📈 Fitness Over Generations</h2>
+      <div class="chart-container"><canvas id="fitnessChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>🧭 Champion Spinoza Scores</h2>
+      <div class="radar-container" id="radar"></div>
+    </div>
+    <div class="panel full">
+      <h2>🏆 Population Ranking</h2>
+      <table>
+        <thead><tr><th>#</th><th>Prompt (truncated)</th><th>Conatus</th><th>Ratio</th><th>Laetitia</th><th>Natura</th><th>Total</th></tr></thead>
+        <tbody id="popTable"></tbody>
+      </table>
+    </div>
+    <div class="panel full">
+      <h2>🧬 Champion Gene Sequence</h2>
+      <div class="gene-diff" id="genes"></div>
+    </div>
+  </div>
+
+  <script>
+    // Placeholder data — replaced by forge-serve SSE or inline injection
+    const EVOLUTION_DATA = window.__EVOLUTION__ || {
+      history: [
+        { generation: 0, bestFitness: 0.62, avgFitness: 0.48, populationSize: 6 },
+        { generation: 1, bestFitness: 0.71, avgFitness: 0.58, populationSize: 6 },
+        { generation: 2, bestFitness: 0.79, avgFitness: 0.67, populationSize: 6 },
+      ],
+      best: {
+        prompt: 'Create an elegant dashboard with smooth animations using glassmorphism effects.',
+        fitness: { conatus: 0.82, ratio: 0.78, laetitia: 0.85, natura: 0.71, total: 0.79 },
+        generation: 2
+      },
+      totalEvaluations: 18,
+      population: []
+    };
+
+    const d = EVOLUTION_DATA;
+    const last = d.history[d.history.length - 1] || {};
+
+    // Stats
+    document.getElementById('s-gen').textContent = last.generation ?? '—';
+    document.getElementById('s-best').textContent = last.bestFitness?.toFixed(3) ?? '—';
+    document.getElementById('s-avg').textContent = last.avgFitness?.toFixed(3) ?? '—';
+    document.getElementById('s-evals').textContent = d.totalEvaluations ?? '—';
+
+    // Fitness chart (simple canvas)
+    const canvas = document.getElementById('fitnessChart');
+    const ctx = canvas.getContext('2d');
+    function drawChart() {
+      const W = canvas.parentElement.clientWidth;
+      const H = 250;
+      canvas.width = W * 2; canvas.height = H * 2;
+      canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+      ctx.scale(2, 2);
+      const pad = { t: 20, r: 20, b: 30, l: 40 };
+      const cw = W - pad.l - pad.r, ch = H - pad.t - pad.b;
+
+      ctx.fillStyle = '#12121a';
+      ctx.fillRect(0, 0, W, H);
+
+      // Grid
+      ctx.strokeStyle = '#1e1e2e';
+      ctx.lineWidth = 0.5;
+      for (let i = 0; i <= 4; i++) {
+        const y = pad.t + ch * (1 - i / 4);
+        ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(pad.l + cw, y); ctx.stroke();
+        ctx.fillStyle = '#666'; ctx.font = '10px monospace';
+        ctx.fillText((i * 0.25).toFixed(2), 4, y + 4);
+      }
+
+      if (d.history.length < 2) return;
+
+      const draw = (key, color) => {
+        ctx.strokeStyle = color; ctx.lineWidth = 2;
+        ctx.beginPath();
+        d.history.forEach((h, i) => {
+          const x = pad.l + (i / (d.history.length - 1)) * cw;
+          const y = pad.t + ch * (1 - h[key]);
+          i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+        // Dots
+        d.history.forEach((h, i) => {
+          const x = pad.l + (i / (d.history.length - 1)) * cw;
+          const y = pad.t + ch * (1 - h[key]);
+          ctx.fillStyle = color;
+          ctx.beginPath(); ctx.arc(x, y, 3, 0, Math.PI * 2); ctx.fill();
+        });
+      };
+      draw('bestFitness', '#7C3AED');
+      draw('avgFitness', '#06B6D4');
+
+      // Legend
+      ctx.fillStyle = '#7C3AED'; ctx.fillRect(pad.l, H - 15, 10, 3);
+      ctx.fillStyle = '#e0e0e0'; ctx.font = '10px sans-serif'; ctx.fillText('Best', pad.l + 14, H - 12);
+      ctx.fillStyle = '#06B6D4'; ctx.fillRect(pad.l + 60, H - 15, 10, 3);
+      ctx.fillStyle = '#e0e0e0'; ctx.fillText('Average', pad.l + 74, H - 12);
+    }
+    drawChart();
+
+    // Spinoza Radar (SVG)
+    function drawRadar(f) {
+      const dims = ['conatus', 'ratio', 'laetitia', 'natura'];
+      const labels = ['Conatus', 'Ratio', 'Laetitia', 'Natura'];
+      const cx = 100, cy = 100, r = 80;
+      const angles = dims.map((_, i) => (Math.PI * 2 * i / dims.length) - Math.PI / 2);
+
+      let svg = `<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">`;
+      // Grid rings
+      for (const s of [0.25, 0.5, 0.75, 1]) {
+        const pts = angles.map(a => `${cx + r * s * Math.cos(a)},${cy + r * s * Math.sin(a)}`).join(' ');
+        svg += `<polygon points="${pts}" fill="none" stroke="#1e1e2e" stroke-width="0.5"/>`;
+      }
+      // Axes
+      angles.forEach(a => {
+        svg += `<line x1="${cx}" y1="${cy}" x2="${cx + r * Math.cos(a)}" y2="${cy + r * Math.sin(a)}" stroke="#1e1e2e" stroke-width="0.5"/>`;
+      });
+      // Data
+      const dataPts = dims.map((d, i) => `${cx + r * (f[d] || 0) * Math.cos(angles[i])},${cy + r * (f[d] || 0) * Math.sin(angles[i])}`).join(' ');
+      svg += `<polygon points="${dataPts}" fill="rgba(124,58,237,0.2)" stroke="#7C3AED" stroke-width="2"/>`;
+      // Labels
+      dims.forEach((d, i) => {
+        const lx = cx + (r + 18) * Math.cos(angles[i]);
+        const ly = cy + (r + 18) * Math.sin(angles[i]);
+        svg += `<text x="${lx}" y="${ly}" fill="#e0e0e0" font-size="10" text-anchor="middle" dominant-baseline="middle">${labels[i]}</text>`;
+        const vx = cx + (r + 8) * Math.cos(angles[i]) * 0.7;
+        const vy = cy + (r + 8) * Math.sin(angles[i]) * 0.7;
+        svg += `<text x="${vx}" y="${vy + 12}" fill="#7C3AED" font-size="9" text-anchor="middle" font-family="monospace">${(f[d] || 0).toFixed(2)}</text>`;
+      });
+      svg += `</svg>`;
+      return svg;
+    }
+    document.getElementById('radar').innerHTML = drawRadar(d.best?.fitness || {});
+
+    // Population table
+    const pop = d.population?.length ? d.population : [d.best].filter(Boolean);
+    const tbody = document.getElementById('popTable');
+    pop.sort((a, b) => (b.fitness?.total || 0) - (a.fitness?.total || 0)).forEach((ind, i) => {
+      const f = ind.fitness || {};
+      const barW = Math.round((f.total || 0) * 120);
+      tbody.innerHTML += `<tr>
+        <td class="rank">${i + 1}</td>
+        <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${ind.prompt?.slice(0, 80) || '—'}…</td>
+        <td>${(f.conatus || 0).toFixed(2)}</td>
+        <td>${(f.ratio || 0).toFixed(2)}</td>
+        <td>${(f.laetitia || 0).toFixed(2)}</td>
+        <td>${(f.natura || 0).toFixed(2)}</td>
+        <td><span class="score-bar" style="width:${barW}px"></span> ${(f.total || 0).toFixed(3)}</td>
+      </tr>`;
+    });
+
+    // Gene sequence
+    const genes = document.getElementById('genes');
+    if (d.best?.prompt) {
+      const segments = d.best.prompt.split(/(?<=[.!?\n])\s+/);
+      genes.innerHTML = segments.map((s, i) => `<span class="gene-tag">G${i}</span> ${s}`).join('\n');
+    }
+  </script>
+</body>
+</html>
